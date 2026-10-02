@@ -1,6 +1,6 @@
 # Photo Cleaner · iPhone
 
-Native SwiftUI-App (iOS 16+) für **Duplikate → ähnliche Fotos → Swipe → Review → bestätigtes Löschen**. Keine externen Swift-Pakete, Werbung, Konten, Abos oder kostenpflichtigen APIs. Die App enthält keine Upload- oder Netzwerkfunktion.
+Native SwiftUI-App (iOS 16+) für **Duplikate → ähnliche Fotos → Swipe → Review → bestätigtes Löschen**. Keine externen Swift-Pakete, Werbung, Konten, Abos oder kostenpflichtigen APIs. Fehlende Fotodaten dürfen ausschließlich über Apple PhotoKit aus der eigenen iCloud-Fotomediathek nachgeladen werden; es gibt keinen Upload an eigene oder fremde Server.
 
 **Stand: v1.0.0-alpha.1 – implementierter Prototyp, noch nicht auf einem Apple-Gerät validiert.**
 Swift-Syntax und Xcode-Projektstruktur wurden statisch geprüft. In der Erstellungsumgebung waren weder Swift noch Xcode installiert. Ein erfolgreicher iOS-Build oder bestandene XCTest-/Gerätetests wird deshalb ausdrücklich nicht behauptet. Vor Einsatz mit wichtigen Fotos zuerst die Checkliste in `docs/TESTING.md` durchführen.
@@ -37,7 +37,7 @@ Apple-Quellen: [Kostenlose Entwicklung und Personal Team](https://developer.appl
 
 ## Apple-konforme Grenzen
 
-- **iCloud:** Alle PhotoKit-Anfragen setzen `isNetworkAccessAllowed = false`. Nur in iCloud liegende Originale werden nicht heruntergeladen. Der Scan zeigt die Anzahl unvollständig prüfbarer Fotos; spätere Scans versuchen diese erneut. Lokal vorhandene Vorschauen können für Ähnlichkeit ausreichen, auch wenn ein exakter Vergleich nicht möglich ist.
+- **iCloud:** PhotoKit darf fehlende Bilddaten und Asset-Ressourcen aus der eigenen iCloud-Fotomediathek nachladen (`isNetworkAccessAllowed = true`). Dadurch können auch optimierte bzw. nur in iCloud vorhandene Fotos vollständig analysiert werden. Bei fehlender Internetverbindung, iCloud-Fehlern oder nicht erreichbaren Assets werden betroffene Fotos gezählt und können in einem späteren Scan erneut versucht werden.
 - **Exakt** bedeutet identische Ressourcenbytes, nicht bloss gleicher Bildinhalt. Abweichende Metadaten, Formate oder Bearbeitungshistorien können die exakte Gruppierung verhindern. Solche Bilder können in ähnlichen Gruppen auftauchen.
 - **Ähnlichkeit:** V1 vergleicht zeitlich nahe Fotos innerhalb von 24 Stunden zum Gruppenvertreter. Keine globale semantische Suche, keine Gesichts-/Augenerkennung. Jede Aufnahme muss direkt zum Vertreter passen; Ähnlichkeitsketten werden vermieden. Exakte Mehrfachkopien sind in der Ähnlichkeitsansicht auf einen Vertreter reduziert.
 - **Empfohlen** ist eine einfache Heuristik, keine Garantie für das schönste Foto. Motive, Gesichtsausdruck und Bildkomposition bewertet V1 nicht.
