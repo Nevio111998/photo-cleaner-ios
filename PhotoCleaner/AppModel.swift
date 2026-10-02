@@ -70,7 +70,11 @@ import Photos
                     await self.receive(update)
                 }
                 records = result
-                notice = "Analyse abgeschlossen. \(unavailable) Fotos nicht vollständig lokal prüfbar."
+                if unavailable == 0 {
+                    notice = "Analyse vollständig abgeschlossen. Alle \(total) Fotos wurden geprüft – inklusive Fotos aus iCloud."
+                } else {
+                    notice = "Analyse abgeschlossen. \(unavailable) von \(total) Fotos konnten trotz iCloud-Zugriff nicht vollständig geprüft werden. Prüfe Internetverbindung und iCloud-Fotostatus und starte die Analyse erneut."
+                }
             } catch is CancellationError { notice = "Analyse gestoppt. Der bisherige Stand bleibt gespeichert." }
             catch { self.error = error.localizedDescription }
             decisions.retain(Set(records.map(\.id)))
