@@ -32,7 +32,7 @@ enum PhotoLibrary {
     static func image(_ asset: PHAsset, size: CGSize) async -> UIImage? {
         await withCheckedContinuation { continuation in
             let options = PHImageRequestOptions()
-            options.isNetworkAccessAllowed = false
+            options.isNetworkAccessAllowed = true
             options.deliveryMode = .highQualityFormat
             options.resizeMode = .fast
             PHImageManager.default().requestImage(for: asset, targetSize: size,
@@ -52,7 +52,7 @@ enum PhotoLibrary {
             let accumulator = DigestAccumulator()
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 let options = PHAssetResourceRequestOptions()
-                options.isNetworkAccessAllowed = false
+                options.isNetworkAccessAllowed = true
                 PHAssetResourceManager.default().requestData(for: resource, options: options,
                     dataReceivedHandler: { accumulator.append($0) }, completionHandler: { error in
                         if let error { continuation.resume(throwing: error) }
