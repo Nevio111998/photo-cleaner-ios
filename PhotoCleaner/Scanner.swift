@@ -71,13 +71,14 @@ actor Scanner {
         // Only photos that can still be exact byte duplicates after the cheap preview
         // gate require the expensive original-resource stream from iCloud.
         let candidateIDs = Grouping.exactCandidateIDs(records)
+        let indexByID = Dictionary(uniqueKeysWithValues: records.enumerated().map { ($0.element.id, $0.offset) })
         let candidatesNeedingDigest = candidateIDs.filter { id in
-            records.first(where: { $0.id == id })?.digest == nil
+            guard let index = indexByID[id] else { return false }
+            return records[index].digest == nil
         }
 
         if !candidatesNeedingDigest.isEmpty {
             let assetsByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.localIdentifier, $0) })
-            var indexByID = Dictionary(uniqueKeysWithValues: records.enumerated().map { ($0.element.id, $0.offset) })
             let orderedCandidates = candidatesNeedingDigest.sorted()
 
             for (candidateIndex, id) in orderedCandidates.enumerated() {
