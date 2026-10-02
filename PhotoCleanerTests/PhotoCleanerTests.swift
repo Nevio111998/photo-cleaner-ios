@@ -2,9 +2,12 @@ import XCTest
 @testable import PhotoCleaner
 
 final class PhotoCleanerTests: XCTestCase {
-    private func photo(_ id: String, hash: UInt64 = 0, digest: String? = nil, time: TimeInterval = 0) -> PhotoRecord {
-        PhotoRecord(id: id, signature: "v1", date: Date(timeIntervalSince1970: time), width: 1000,
-                    height: 1000, digest: digest, bytes: 100, fingerprint: hash, quality: 1)
+    private func photo(_ id: String, hash: UInt64 = 0, digest: String? = nil,
+                       preview: String? = nil, time: TimeInterval = 0,
+                       width: Int = 1000, height: Int = 1000) -> PhotoRecord {
+        PhotoRecord(id: id, signature: "v1", date: Date(timeIntervalSince1970: time), width: width,
+                    height: height, digest: digest, bytes: 100, previewDigest: preview,
+                    fingerprint: hash, quality: 1)
     }
     func testSwipesOnlyChangeDecisionsAndUndoRestoresPreviousChoice() {
         var state = DecisionHistory()
@@ -27,6 +30,20 @@ final class PhotoCleanerTests: XCTestCase {
     func testMissingResourcesNeverCountAsExactDuplicates() {
         XCTAssertTrue(Grouping.exact([photo("a"), photo("b")]).isEmpty)
         XCTAssertEqual(Grouping.exact([photo("a", digest: "same"), photo("b", digest: "same"), photo("c", digest: "other")]).count, 1)
+    }
+
+    func testExactCandidatePrefilterOnlySelectsMatchingPreviewAndDimensions() {
+        let records = [
+            photo("a", preview: "pixels"),
+            photo("b", preview: "pixels"),
+            photo("c", preview: "different"),
+            photo("d", preview: "pixels", width: 2000)
+        ]
+        XCTAssertEqual(Grouping.exactCandidateIDs(records), Set(["a", "b"]))
+    }
+
+    func testExactCandidatePrefilterIgnoresMissingPreview() {
+        XCTAssertTrue(Grouping.exactCandidateIDs([photo("a"), photo("b")]).isEmpty)
     }
     func testSimilarGroupsDoNotChainAndRespectTimeWindow() {
         // A differs from B by 2 bits; B from C by 2, but A from C by 4.
