@@ -31,7 +31,8 @@ struct HomeView: View {
                     if model.scanning {
                         ProgressView(value: Double(model.completed), total: Double(max(1, model.total)))
                         Text("\(model.completed) von \(model.total) Fotos analysiert").font(.caption)
-                        Text("Fehlende Fotodaten werden bei Bedarf sicher über Apple PhotoKit aus deiner iCloud geladen. Bei einer grossen Mediathek kann der erste vollständige Scan länger dauern.")
+                        Text(model.scanStatus).font(.caption).foregroundStyle(.secondary)
+                        Text("Die App lädt zuerst nur kleine iCloud-Vorschauen. Vollständige Originaldaten werden nur für mögliche exakte Duplikate gestreamt und nicht als Kopie in der App gespeichert.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if let notice = model.notice { Text(notice).font(.callout).foregroundStyle(.secondary) }
