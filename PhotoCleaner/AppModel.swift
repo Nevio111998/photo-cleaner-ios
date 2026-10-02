@@ -12,6 +12,7 @@ import Photos
     @Published var completed = 0
     @Published var total = 0
     @Published var unavailable = 0
+    @Published var scanStatus = ""
     @Published var error: String?
     @Published var notice: String?
     @Published var threshold = 6.0
@@ -62,7 +63,7 @@ import Photos
     func scan() {
         guard hasAccess, !scanning, !deleting else { return }
         refresh()
-        scanning = true; completed = 0; unavailable = 0; notice = nil
+        scanning = true; completed = 0; unavailable = 0; scanStatus = "Analyse wird vorbereitet …"; notice = nil
         let cache = records
         scanTask = Task {
             do {
@@ -84,7 +85,7 @@ import Photos
     private func receive(_ update: ScanUpdate) {
         let updatedIDs = Set(update.records.map(\.id))
         records = update.records + records.filter { !updatedIDs.contains($0.id) }
-        completed = update.completed; total = update.total; unavailable = update.unavailable
+        completed = update.completed; total = update.total; unavailable = update.unavailable; scanStatus = update.status
         persist()
     }
     func stop() { scanTask?.cancel() }
