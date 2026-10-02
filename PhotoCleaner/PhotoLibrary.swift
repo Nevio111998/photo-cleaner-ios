@@ -89,7 +89,7 @@ enum ImageAnalysis {
         }
         return succeeded ? pixels : nil
     }
-    static func analyze(_ image: UIImage, pixels: Int) -> (UInt64, Double, [UInt8])? {
+    static func analyze(_ image: UIImage, pixels: Int) -> (UInt64, Double, [UInt8], String)? {
         // Render UIKit orientation before deriving the fingerprint.
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         let normalized = UIGraphicsImageRenderer(size: CGSize(width: 256, height: 256), format: format)
@@ -112,6 +112,7 @@ enum ImageAnalysis {
             if detail[index] < 8 || detail[index] > 247 { clipped += 1 }
         } }
         let quality = log1p(sharpness / 3844) + 0.2 * log1p(Double(pixels) / 1_000_000) - clipped / 3844
-        return (hash, quality, tones)
+        let previewDigest = SHA256.hash(data: Data(detail)).map { String(format: "%02x", $0) }.joined()
+        return (hash, quality, tones, previewDigest)
     }
 }
