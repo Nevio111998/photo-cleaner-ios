@@ -36,10 +36,10 @@ struct HomeView: View {
                 }
                 if model.hasAccess {
                     Section("Gefunden") {
-                        NavigationLink { GroupList(title: "Exakte Duplikate", exact: true) } label: {
+                        NavigationLink { ContinuousSwipeView(title: "Exakte Duplikate", exact: true) } label: {
                             category("Exakte Duplikate", icon: "square.on.square", count: model.exact.reduce(0) { $0 + $1.photos.count })
                         }
-                        NavigationLink { GroupList(title: "Ähnliche Fotos", exact: false) } label: {
+                        NavigationLink { ContinuousSwipeView(title: "Ähnliche Fotos", exact: false) } label: {
                             category("Ähnliche Fotos", icon: "photo.stack", count: model.similar.reduce(0) { $0 + $1.photos.count })
                         }
                         NavigationLink { ReviewView() } label: {
@@ -84,95 +84,194 @@ struct AssetImage: View {
     }
 }
 
-struct GroupList: View {
+struct SwipeItem: Identifiable {
+    let photo: PhotoRecord
+    let groupNumber: Int
+    let groupCount: Int
+    let positionInGroup: Int
+    let photosInGroup: Int
+    let bestID: String?
+    var id: String { photo.id }
+}
+
+struct ContinuousSwipeView: View {
     @EnvironmentObject var model: AppModel
     let title: String
     let exact: Bool
-    var groups: [PhotoGroup] { exact ? model.exact : model.similar }
-    var body: some View {
-        List {
-            if groups.isEmpty { Text("Keine Gruppen gefunden. Starte eine Analyse auf der Startseite.") }
-            ForEach(groups) { group in
-                NavigationLink { SwipeView(group: group) } label: {
-                    HStack {
-                        AssetImage(id: group.photos[0].id).frame(width: 68, height: 68)
-                        VStack(alignment: .leading) {
-                            Text("\(group.photos.count) \(exact ? "identische" : "ähnliche") Fotos").font(.headline)
-                            Text("\(group.photos.filter { model.decisions.decisions[$0.id] != nil }.count) entschieden")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-        }.navigationTitle(title)
-    }
-}
-
-struct SwipeView: View {
-    @EnvironmentObject var model: AppModel
-    let group: PhotoGroup
     @State private var index = 0
     @State private var offset: CGFloat = 0
+
+    private var groups: [PhotoGroup] { exact ? model.exact : model.similar }
+
+    private var items: [SwipeItem] {
+        let totalGroups = groups.count
+        return groups.enumerated().flatMap { groupIndex, group in
+            group.photos.enumerated().map { photoIndex, photo in
+                SwipeItem(
+                    photo: photo,
+                    groupNumber: groupIndex + 1,
+                    groupCount: totalGroups,
+                    positionInGroup: photoIndex + 1,
+                    photosInGroup: group.photos.count,
+                    bestID: group.bestID
+                )
+            }
+        }
+    }
+
     var body: some View {
-        VStack(spacing: 12) {
-            if index < group.photos.count {
-                let photo = group.photos[index]
+        VStack(spacing: 14) {
+            if index < items.count {
+                let item = items[index]
+
                 HStack {
-                    Text("Foto \(index + 1) von \(group.photos.count)")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Gruppe \(item.groupNumber) von \(item.groupCount)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(exact ? "Identische Fotos" : "Ähnliche Fotos")
+                            .font(.headline)
+                    }
                     Spacer()
-                    if photo.id == group.bestID { Label("Empfohlen", systemImage: "star.fill").foregroundStyle(.orange) }
-                }.font(.caption)
+                    if item.photo.id == item.bestID {
+                        Label("Empfohlen", systemImage: "star.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+
                 ZStack(alignment: .top) {
-                    AssetImage(id: photo.id, large: true)
-                        .offset(x: offset).rotationEffect(.degrees(Double(offset / 30)))
+                    AssetImage(id: item.photo.id, large: true)
+                        .offset(x: offset)
+                        .rotationEffect(.degrees(Double(offset / 30)))
+
                     if abs(offset) > 30 {
                         Text(offset > 0 ? "BEHALTEN" : "VORMERKEN")
-                            .font(.headline).padding().background(offset > 0 ? Color.green : Color.red)
-                            .foregroundStyle(.white).clipShape(Capsule())
+                            .font(.headline)
+                            .padding()
+                            .background(offset > 0 ? Color.green : Color.red)
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
                     }
-                }.frame(maxHeight: .infinity)
-                    .gesture(DragGesture().onChanged { offset = $0.translation.width }
+                }
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture()
+                        .onChanged { offset = $0.translation.width }
                         .onEnded { value in
-                            if value.translation.width > 90 { decide(.keep) }
-                            else if value.translation.width < -90 { decide(.delete) }
-                            offset = 0
-                        })
-                if let decision = model.decisions.decisions[photo.id] {
-                    Text(decision == .keep ? "Behalten" : "Zum Löschen vorgemerkt").font(.caption)
-                }
-                ScrollView(.horizontal) {
-                    HStack {
-                        ForEach(Array(group.photos.enumerated()), id: \.element.id) { position, item in
-                            Button { index = position } label: {
-                                AssetImage(id: item.id).frame(width: 58, height: 58)
-                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(position == index ? Color.teal : Color.clear, lineWidth: 3))
-                            }.accessibilityLabel("Foto \(position + 1) anzeigen")
+                            if value.translation.width > 90 {
+                                decide(.keep)
+                            } else if value.translation.width < -90 {
+                                decide(.delete)
+                            } else {
+                                withAnimation(.spring(response: 0.25)) { offset = 0 }
+                            }
                         }
-                    }.padding(4)
+                )
+
+                VStack(spacing: 4) {
+                    Text("Nr. \(item.positionInGroup) von \(item.photosInGroup)")
+                        .font(.title3.bold())
+                    Text("Insgesamt \(index + 1) von \(items.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                HStack {
-                    Button { decide(.delete) } label: { Label("Vormerken", systemImage: "trash") }.tint(.red)
-                    Spacer()
-                    Button { decide(.keep) } label: { Label("Behalten", systemImage: "heart") }
-                }.buttonStyle(.borderedProminent)
+
+                if let decision = model.decisions.decisions[item.photo.id] {
+                    Text(decision == .keep ? "Behalten" : "Zum Löschen vorgemerkt")
+                        .font(.caption)
+                }
+            } else if items.isEmpty {
+                Spacer()
+                Image(systemName: "photo.stack")
+                    .font(.system(size: 54))
+                    .foregroundStyle(.secondary)
+                Text("Keine Fotos gefunden")
+                    .font(.title2.bold())
+                Text("Starte zuerst eine Analyse auf der Startseite.")
+                    .foregroundStyle(.secondary)
+                Spacer()
             } else {
                 Spacer()
-                Image(systemName: "checkmark.circle").font(.system(size: 60)).foregroundStyle(.teal)
-                Text("Gruppe geprüft").font(.title.bold())
-                Text("Es wurde noch nichts gelöscht.")
-                Button("Gruppe erneut ansehen") { index = 0 }
-                NavigationLink("Löschübersicht öffnen") { ReviewView() }.buttonStyle(.borderedProminent)
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 60))
+                    .foregroundStyle(.teal)
+                Text("Alles geprüft")
+                    .font(.title.bold())
+                Text(exact ? "Alle exakten Duplikate wurden durchgesehen." : "Alle ähnlichen Fotos wurden durchgesehen.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                Text("Gelöscht wurde noch nichts.")
+                    .font(.callout)
+                Button("Alle erneut ansehen") {
+                    index = 0
+                    offset = 0
+                }
+                NavigationLink("Löschübersicht öffnen") {
+                    ReviewView()
+                }
+                .buttonStyle(.borderedProminent)
                 Spacer()
             }
-            Button { if let id = model.undo(), let position = group.photos.firstIndex(where: { $0.id == id }) { index = position } } label: { Label("Letzten Swipe rückgängig", systemImage: "arrow.uturn.backward") }
-                .disabled(!model.canUndo)
-            Text("Links vormerken · Rechts behalten").font(.caption).foregroundStyle(.secondary)
-        }.padding().navigationTitle("Fotos prüfen").navigationBarTitleDisplayMode(.inline)
-            .toolbar { NavigationLink { ReviewView() } label: { Image(systemName: "trash") } }
+
+            if !items.isEmpty {
+                HStack {
+                    Button {
+                        undo()
+                    } label: {
+                        Label("Rückgängig", systemImage: "arrow.uturn.backward")
+                    }
+                    .disabled(!model.canUndo)
+
+                    Spacer()
+
+                    NavigationLink {
+                        ReviewView()
+                    } label: {
+                        Label("\(model.queue.count)", systemImage: "trash")
+                    }
+                }
+
+                Text("Links vormerken · Rechts behalten")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { resumeAtFirstUndecided() }
     }
+
     private func decide(_ decision: Decision) {
-        model.decide(decision, id: group.photos[index].id)
-        index += 1; offset = 0
+        guard index < items.count else { return }
+        model.decide(decision, id: items[index].photo.id)
+        index += 1
+        offset = 0
+        skipPreviouslyDecided()
+    }
+
+    private func undo() {
+        guard let id = model.undo(),
+              let position = items.firstIndex(where: { $0.photo.id == id }) else { return }
+        index = position
+        offset = 0
+    }
+
+    private func resumeAtFirstUndecided() {
+        if let next = items.firstIndex(where: { model.decisions.decisions[$0.photo.id] == nil }) {
+            index = next
+        } else {
+            index = items.count
+        }
+    }
+
+    private func skipPreviouslyDecided() {
+        while index < items.count,
+              model.decisions.decisions[items[index].photo.id] != nil {
+            index += 1
+        }
     }
 }
 
