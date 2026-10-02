@@ -1,26 +1,53 @@
-name: iOS build and tests
+name: iOS build, tests and IPA
 on:
   push:
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
-  test:
+  build:
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 25
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Pick available iPhone simulator
         run: |
           DEVICE_ID=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for devices in d["devices"].values() for x in devices if "iPhone" in x["name"]))')
           echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+
       - name: Build and test
         run: >-
           xcodebuild test -project PhotoCleaner.xcodeproj -scheme PhotoCleaner
           -destination "platform=iOS Simulator,id=$DEVICE_ID"
           -resultBundlePath TestResults.xcresult CODE_SIGNING_ALLOWED=NO
-      - uses: actions/upload-artifact@v4
+
+      - name: Build unsigned iPhone app
+        run: >-
+          xcodebuild build -project PhotoCleaner.xcodeproj -scheme PhotoCleaner
+          -configuration Release -sdk iphoneos
+          -destination "generic/platform=iOS"
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/PhotoCleaner.app Payload/
+          zip -qry PhotoCleaner-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoCleaner-unsigned-IPA
+          path: PhotoCleaner-unsigned.ipa
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: xcode-results
