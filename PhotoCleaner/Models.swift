@@ -8,6 +8,7 @@ struct PhotoRecord: Codable, Identifiable {
     let height: Int
     var digest: String?
     var bytes: Int64?
+    var previewDigest: String?
     var fingerprint: UInt64?
     var quality: Double?
     var luminance: [UInt8]?
@@ -48,6 +49,18 @@ struct DecisionHistory {
 
 enum Grouping {
     static func distance(_ a: UInt64, _ b: UInt64) -> Int { (a ^ b).nonzeroBitCount }
+
+    // A full original-resource hash is only needed when at least two photos share the
+    // same dimensions and the same SHA-256 digest of normalized 64×64 preview pixels.
+    // Exact byte-identical assets necessarily pass this gate, while unrelated photos
+    // avoid expensive iCloud original downloads.
+    static func exactCandidateIDs(_ records: [PhotoRecord]) -> Set<String> {
+        let groups = Dictionary(grouping: records.filter { $0.previewDigest != nil }) {
+            "\($0.width)x\($0.height):\($0.previewDigest!)"
+        }
+        return Set(groups.values.filter { $0.count > 1 }.flatMap { $0.map(\.id) })
+    }
+
     static func exact(_ records: [PhotoRecord]) -> [PhotoGroup] {
         Dictionary(grouping: records.filter { $0.digest != nil }, by: { $0.digest! })
             .values.filter { $0.count > 1 }
