@@ -122,4 +122,4 @@ A free Personal Team can be sufficient for testing on your own device, but its p
 
 This project focuses deliberately on duplicate/similar-image detection and safe review. Additional categories such as videos, screenshots and large-file cleanup are potential future extensions, **not implemented features**.
 
-Built as a practical personal software project showcasing native iOS development, image processing, resource-conscious algorithms, state management and cautious handling of destructive operations.
+Built as a practical personal software project.
