@@ -1,108 +1,125 @@
-# Photo Cleaner · iPhone
+# Photo Cleaner for iOS
 
-Native SwiftUI-App (iOS 16+) für **Duplikate → ähnliche Fotos → Swipe → Review → bestätigtes Löschen**. Keine externen Swift-Pakete, Werbung, Konten, Abos oder kostenpflichtigen APIs. Fehlende Fotodaten dürfen ausschließlich über Apple PhotoKit aus der eigenen iCloud-Fotomediathek nachgeladen werden; es gibt keinen Upload an eigene oder fremde Server.
+**Native iPhone photo-cleanup app built with SwiftUI, PhotoKit and Swift Concurrency.** Photo Cleaner helps identify exact duplicates and visually similar photos, compare them, and review potential deletions before anything is removed.
 
-**Stand: v1.0.0-alpha.1 – implementierter Prototyp, noch nicht auf einem Apple-Gerät validiert.**
-Swift-Syntax und Xcode-Projektstruktur wurden statisch geprüft. In der Erstellungsumgebung waren weder Swift noch Xcode installiert. Ein erfolgreicher iOS-Build oder bestandene XCTest-/Gerätetests wird deshalb ausdrücklich nicht behauptet. Vor Einsatz mit wichtigen Fotos zuerst die Checkliste in `docs/TESTING.md` durchführen.
+**Status:** Functional personal-use application, installed via Xcode and successfully used on a physical iPhone. In real-world use, the developer reviewed and removed **over 1,000 duplicate or similar photos**. This is a practical usage report, not a formal benchmark or a claim of broad device compatibility.
 
-## Enthalten
+No accounts, ads, subscriptions, third-party Swift packages or paid APIs are required. Photo analysis takes place on-device; missing photo resources may be fetched from the owner's iCloud Photos library through Apple's PhotoKit. The app does not upload photos to a developer-operated server.
 
-- PhotoKit-Zugriff inklusive verweigerter und eingeschränkter Berechtigung.
-- Fortschritt, Scan-Abbruch und Wiederverwendung unveränderter Ergebnisse.
-- Speicheroptimierter Zwei-Stufen-Scan: Jedes Foto wird zuerst nur mit einer kleinen 256px-Darstellung geprüft. Nur Fotos mit identischen Abmessungen und identischem normalisiertem 64×64-Vorschau-Digest werden als Kandidaten für exakte Duplikate weiter geprüft. Für diese Kandidaten werden die Originalressourcen per PhotoKit gestreamt und mit SHA-256 verifiziert. Byte-identische Duplikate können den Vorfilter nicht umgehen; unnötige Original-Downloads werden vermieden.
-- Ähnliche Fotos anhand lokalem 64-Bit-dHash, zusätzlichem 8×8-Helligkeitsvergleich und Seitenverhältnis. Konfigurierbare Hamming-Distanz 2–10, Standard 6.
-- Gruppen, grosse Einzelansicht, Vergleich über anklickbare Thumbnails und heuristische Empfehlung aus Schärfe, Pixelanzahl und Belichtung.
-- Links: vormerken. Rechts: behalten. Buttons als Alternative. Undo des letzten Entscheids während der laufenden Sitzung.
-- Persistente Entscheidungen, Löschübersicht, Einzelbilder prüfen, Auswahl entfernen und alles verwerfen.
-- App-Bestätigung vor dem einzigen PhotoKit-Löschaufruf; Apple kann zusätzlich eine Systembestätigung anzeigen. Fehler und Abbruch erhalten die Auswahl.
-- Vor Löschung: identische Queue, unveränderte Asset-Signaturen und Löschbarkeit prüfen. Keine automatische Auswahl oder Löschung.
+## Highlights
 
-## Kostenlos auf deinem iPhone installieren
+- **Two-stage duplicate detection:** Analyze lightweight 256px previews first, then stream and hash original resources with SHA-256 for potential byte-identical duplicates. Avoid unnecessary full-resolution downloads.
+- **Similar-photo grouping:** Use local 64-bit difference hashes (dHash), an 8×8 brightness comparison, aspect ratio and a configurable Hamming-distance threshold (2–10; default 6). Comparisons are restricted to photos taken within 24 hours of the group representative.
+- **Human-in-the-loop review:** Compare photos, use swipe gestures or buttons to keep or mark images, undo the most recent decision, and inspect a final deletion queue.
+- **Deletion safeguards:** Revalidate the selected assets and request explicit confirmation before PhotoKit performs a deletion. No automatic photo deletion.
+- **Local persistence:** Cache analysis features and review decisions, reuse unchanged results, and support interrupted scanning without maintaining a duplicate photo library.
+- **Privacy-aware design:** No custom backend or photo uploads to third-party services.
 
-**Du brauchst einen Mac mit einer zu deinem iPhone-iOS passenden Xcode-Version, dein iPhone und einen kostenlosen Apple Account.** Ein GitHub-Repository allein kann eine native iOS-App nicht auf dein iPhone installieren.
+## How it works
 
-1. Xcode aus dem Mac App Store installieren und einmal starten; angebotene iOS-Komponenten installieren.
-2. ZIP entpacken oder Repository klonen. `PhotoCleaner.xcodeproj` doppelklicken. Kein Projektgenerator nötig.
-3. Xcode → Settings → Accounts: Apple Account hinzufügen.
-4. Blaues Projekt auswählen → Target **PhotoCleaner** → **Signing & Capabilities** → **Automatically manage signing** aktivieren → deine **Personal Team** wählen.
-5. Unter **Bundle Identifier** einen eindeutigen Wert setzen, z. B. `ch.nevio.photocleaner.personal`. Falls Tests signiert ausgeführt werden, auch beim Test-Target deine Team wählen und dessen Identifier anpassen.
-6. iPhone per Kabel verbinden, dem Mac vertrauen und in Xcode oben als Run Destination auswählen.
-7. Falls verlangt: am iPhone unter Einstellungen → Datenschutz & Sicherheit → **Entwicklermodus** aktivieren; den erforderlichen Neustart bestätigen. Falls iOS eine Vertrauensfreigabe verlangt, unter Allgemein → VPN & Geräteverwaltung prüfen.
-8. In Xcode **⌘R** drücken. Auf dem iPhone zuerst nur einige Testbilder freigeben.
-9. Identische Kopien und ähnliche Aufnahmen scannen, Swipes/Undo/Review testen und nur entbehrliche Testbilder löschen.
+```text
+PhotoKit library
+      |
+      v
+256px preview analysis
+      |                  \
+      |                   -> Similarity grouping (dHash + brightness)
+      v
+Exact-duplicate candidates
+      |
+      v
+SHA-256 verification of original resources
+      |
+      v
+Groups and side-by-side review
+      |
+      v
+User-selected deletion queue
+      |
+      v
+Asset revalidation + explicit confirmation
+      |
+      v
+PhotoKit deletion request
+```
 
-Apple erlaubt Personal-Team-Tests kostenlos. Die Provisioning-Profile laufen nach **7 Tagen** ab; danach kann ein erneutes Bauen/Installieren mit Xcode notwendig sein. Ein bezahltes Developer-Abo oder TestFlight ist für diesen persönlichen Test nicht erforderlich.
+A photo marked *similar* is **not necessarily a duplicate**. Recommendations based on sharpness, resolution and exposure are heuristic and do not assess expressions, composition or artistic value. The user remains responsible for choosing what to delete.
 
-Apple-Quellen: [Kostenlose Entwicklung und Personal Team](https://developer.apple.com/support/compare-memberships/), [App auf Gerät starten](https://help.apple.com/xcode/mac/current/en.lproj/dev5a825a1ca.html).
+## Technology and architecture
 
-## Apple-konforme Grenzen
+| Technology | Purpose |
+| --- | --- |
+| Swift / SwiftUI | Native iPhone user interface |
+| Apple PhotoKit | Access to the photo library, iCloud-backed resources and confirmed deletion |
+| Swift Concurrency / actors | Scanning, cancellation and progress reporting |
+| SHA-256 | Verification of byte-identical original resources |
+| dHash and image features | Local visual similarity matching |
+| JSON / Application Support | Protected local cache and persisted decisions |
+| XCTest / GitHub Actions | Test suite and prepared iOS build workflow |
 
-- **iCloud:** PhotoKit darf fehlende Bilddaten aus der eigenen iCloud-Fotomediathek nachladen (`isNetworkAccessAllowed = true`). Für die normale Analyse wird nur eine kleine 256px-Darstellung benötigt. Vollständige Originalressourcen werden nur für mögliche exakte Duplikate gestreamt. Die App speichert keine zusätzlichen Fotokopien; iOS/PhotoKit kann heruntergeladene Inhalte jedoch systemseitig zwischenspeichern. Bei fehlender Internetverbindung, iCloud-Fehlern oder nicht erreichbaren Assets werden betroffene Fotos gezählt und können später erneut geprüft werden.
-- **Exakt** bedeutet identische Ressourcenbytes, nicht bloss gleicher Bildinhalt. Abweichende Metadaten, Formate oder Bearbeitungshistorien können die exakte Gruppierung verhindern. Solche Bilder können in ähnlichen Gruppen auftauchen.
-- **Ähnlichkeit:** V1 vergleicht zeitlich nahe Fotos innerhalb von 24 Stunden zum Gruppenvertreter. Keine globale semantische Suche, keine Gesichts-/Augenerkennung. Jede Aufnahme muss direkt zum Vertreter passen; Ähnlichkeitsketten werden vermieden. Exakte Mehrfachkopien sind in der Ähnlichkeitsansicht auf einen Vertreter reduziert.
-- **Empfohlen** ist eine einfache Heuristik, keine Garantie für das schönste Foto. Motive, Gesichtsausdruck und Bildkomposition bewertet V1 nicht.
-- **Speicher:** Der Scanner hält nur kleine Analysemerkmale, Hashes und Metadaten dauerhaft vor. Er legt keine Foto-Duplikate in seinem eigenen Speicher ab. Originalressourcen werden nur für exakte Kandidaten gestreamt. Die bekannte Dateigrösse ist deshalb nur für vollständig verifizierte Kandidaten verfügbar. iOS kann iCloud-Inhalte unabhängig von der App cachen. Gelöschte Bilder liegen zunächst in Apples „Zuletzt gelöscht“; iCloud synchronisiert bestätigte Löschungen auf andere Geräte.
-- **Hintergrund:** Analyse läuft ausserhalb des Main Actors, während die App geöffnet ist. Beim Wechsel in den Hintergrund wird ein Stop angefordert. Ein bereits laufender Ressourcenabruf kann noch fertiglaufen. Keine garantierte Ausführung bei gesperrtem iPhone; iOS entscheidet über Suspendierung.
-- **Cache:** Geschützte JSON-Datei in Application Support; von Backups ausgenommen. Nur Kennungen, Metadaten, Hashes, Helligkeitsmerkmale und Entscheidungen, keine Bildkopien. Bearbeitete/nicht mehr zugängliche Fotos verlieren beim Abgleich ihre bisherigen Ergebnisse und Entscheidungen. Undo-Historie wird nicht über Neustarts erhalten.
-- **Performance:** Ein Ressourcenstrom und kleine Analysebilder gleichzeitig. Typischer Vergleichsaufwand durch Zeitfenster reduziert; bei sehr vielen unterschiedlichen Fotos am selben Tag bleibt der Worst Case quadratisch. V1 enthält noch keinen Gerätebenchmark.
+| Component | Responsibility |
+| --- | --- |
+| `PhotoCleanerApp.swift` | Application entry point and lifecycle |
+| `AppModel.swift` | UI state, review decisions and deletion confirmation |
+| `Scanner.swift` | Sequential scan actor, cache reuse and progress reporting |
+| `PhotoLibrary.swift` | PhotoKit access, thumbnails, resource streaming and image analysis |
+| `Models.swift` | Data models, grouping and undo logic |
+| `Persistence.swift` | Atomic local persistence and file protection |
+| `Views.swift` | Scanning, grouping, swipe and review screens |
+| `PhotoCleanerTests/` | Unit-test cases for grouping, undo and application data state |
 
-## Architektur
+## Real-device usage and testing
 
-| Datei | Verantwortung |
-|---|---|
-| `PhotoCleanerApp.swift` | Einstieg und App-Lebenszyklus |
-| `AppModel.swift` | Main-Actor-Zustand, Entscheidungen, Löschbestätigung |
-| `Scanner.swift` | Serieller Analyse-Actor, Fortschritt und Cache-Wiederverwendung |
-| `PhotoLibrary.swift` | PhotoKit lesen, streamen, Thumbnails, einziger Löschaufruf; Bildanalyse |
-| `Models.swift` | Datenmodelle, Undo und pure Gruppierung |
-| `Persistence.swift` | Atomare Speicherung mit Dateischutz |
-| `Views.swift` | Start, Gruppen, Swipe und Review |
-| `PhotoCleanerTests/` | XCTest für Gruppierung, Undo und Datenzustand |
+The app has been **installed and used on a real iPhone through Xcode**, including a successful personal cleanup of more than 1,000 duplicate or visually similar photos.
 
-Spätere Kategorien (Screenshots, Unschärfe, Videos, grosse Dateien, Serien) können weitere Scanner/Ansichten und dieselbe Entscheidungs-/Review-Strecke verwenden. Sie sind in V1 absichtlich nicht als funktionslose Menüpunkte enthalten.
+This demonstrates practical functionality on the tested device. It does **not** establish comprehensive testing across iOS versions, iPhone models, large photo libraries, every iCloud failure condition or all deletion edge cases. No device-wide performance benchmark is claimed.
 
-## Testen und Entwicklung
+The repository contains XCTest cases and a GitHub Actions workflow at `.github/workflows/ios.yml`. A passing automated CI run has **not been independently verified in this README**; inspect the repository's Actions tab for the current build and test status. See `docs/TESTING.md` for additional test scenarios, especially before working with important photos.
 
-In Xcode **⌘U** für die Unit-Tests. Für den Simulator zunächst die verfügbare Destination ermitteln:
+### Run the tests
+
+In Xcode, open `PhotoCleaner.xcodeproj` and press **⌘U**. Alternatively, select an available simulator and run:
 
 ```sh
 xcodebuild -list -project PhotoCleaner.xcodeproj
 xcrun simctl list devices available
 xcodebuild test -project PhotoCleaner.xcodeproj -scheme PhotoCleaner \
-  -destination 'platform=iOS Simulator,id=DEINE-SIMULATOR-UUID' \
+  -destination 'platform=iOS Simulator,id=YOUR-SIMULATOR-UUID' \
   CODE_SIGNING_ALLOWED=NO
 ```
 
-`.github/workflows/ios.yml` baut und testet auf einem macOS-Runner. Die Workflow-Datei ist vorbereitet, wurde aber noch nicht ausgeführt. GitHub Actions ist für lokale Nutzung nicht erforderlich; private Repositories können ein Minutenbudget haben.
-
-Statische Linux-Prüfung (kein Ersatz für Xcode):
+Optional static source validation (not a substitute for an Xcode build):
 
 ```sh
 python3 -m pip install -r scripts/requirements-validation.txt
 python3 scripts/validate_source.py
 ```
 
-Projektdatei bei Bedarf deterministisch neu erstellen: `python3 scripts/generate_project.py`. Das überschreibt manuelle Xcode-Projekteinstellungen; vorher eigene Signing-Einstellungen sichern.
+## Install on an iPhone
 
-## GitHub
+A **Mac with a compatible Xcode version**, an iPhone and an Apple Account are required. The GitHub repository alone cannot install the app.
 
-Der lokale Stand ist mit Git versioniert. Es wurde noch kein Remote-Repository erstellt oder hochgeladen, weil die verfügbare GitHub-Anbindung keine Repository-Erstellung anbietet.
+1. Clone or download this repository, then open `PhotoCleaner.xcodeproj` in Xcode.
+2. Under **Xcode → Settings → Accounts**, sign in with your Apple Account.
+3. Select the **PhotoCleaner** target, enable **Automatically manage signing**, choose your team and set a unique bundle identifier.
+4. Connect your iPhone, trust the computer and select the device as the run destination. Enable Developer Mode if iOS requests it.
+5. Press **⌘R** to build and install.
+6. Start with expendable test photos, verify the review and deletion workflow, and only then consider using it with your personal library.
 
-Mit auf dem Mac eingerichteter GitHub CLI kann das neue private Repository erstellt werden:
+A free Personal Team can be sufficient for testing on your own device, but its provisioning profiles have time limits and may require reinstalling or rebuilding the application.
 
-```sh
-# Im Projektordner, nach Wiederherstellung des Git-Verlaufs aus dem Lieferpaket:
-gh auth login
-gh repo create photo-cleaner-ios --private --source=. --remote=origin --push
-git push origin --tags
-```
+## Privacy, limitations and safeguards
 
-Alternativ ein **leeres privates** Repository in GitHub anlegen (ohne README/.gitignore), dann:
+- **Exact duplicates:** “Exact” means identical resource bytes, not merely identical-looking content. Different metadata, edits or encodings can prevent an exact match.
+- **Similar photos:** The current algorithm compares photos near one another in time; it is not a global semantic image search and does not perform face or expression recognition.
+- **iCloud:** PhotoKit may download missing previews or original resources from the user's own iCloud library. Availability depends on connectivity and Apple services; system caching is possible.
+- **Storage:** The application stores identifiers, metadata, hashes, image features and decisions—not its own copies of the original photographs. Undo history is limited to the current session.
+- **Background execution:** Scanning is intended while the app is open. iOS may suspend the app in the background, and an in-progress resource request may complete before cancellation takes effect.
+- **Performance:** Work is reduced using previews and time-window candidate filtering, but worst-case comparisons within dense time windows may still be quadratic; no universal speed or memory benchmark is claimed.
+- **Deletion:** The app requires user review and confirmation. Deleted items normally enter Apple's *Recently Deleted* album, and iCloud Photos may synchronize deletions across devices. Always check your selection before confirming.
 
-```sh
-git remote add origin https://github.com/DEIN-NAME/photo-cleaner-ios.git
-git push -u origin main
-git push origin --tags
-```
+## Project scope
 
-Das Lieferpaket enthält den Projektordner und `PhotoCleaner-history.bundle`. Mit `git clone PhotoCleaner-history.bundle PhotoCleaner-versioniert` wird der vollständige vorbereitete Git-Verlauf als eigenes Arbeitsverzeichnis wiederhergestellt. Für Xcode genügt auch der bereits entpackte Projektordner.
+This project focuses deliberately on duplicate/similar-image detection and safe review. Additional categories such as videos, screenshots and large-file cleanup are potential future extensions, **not implemented features**.
+
+Built as a practical personal software project showcasing native iOS development, image processing, resource-conscious algorithms, state management and cautious handling of destructive operations.
